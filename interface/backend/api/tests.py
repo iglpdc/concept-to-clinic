@@ -1,3 +1,4 @@
+import json
 import os
 
 from django.test import TestCase
@@ -29,7 +30,7 @@ class ViewTest(TestCase):
         payload = response.json()
         self.assertListEqual(payload, [])
 
-        # now create a nodule and figure out what we expect to see in the list
+        # now create nodules and figure out what we expect to see in the list
         case = CaseFactory()
         candidates = CandidateFactory.create_batch(size=3, case=case)
         nodules = []
@@ -37,12 +38,15 @@ class ViewTest(TestCase):
             nodule, _ = candidate.get_or_create_nodule()
             nodules.append(nodule)
         serialized = [NoduleSerializer(n, context={'request': None}) for n in nodules]
-        expected = [s.data for s in serialized]
+        expecteds = [json.loads(json.dumps(s.data)) for s in serialized]
 
         # check the actual response
         response = self.client.get(url)
         payload = response.json()
-        self.assertListEqual(payload, expected)
+        self.maxDiff = 2000
+        for actual, expected in zip(payload, expecteds):
+            self.assertDictEqual(actual['candidate']['centroid'], expected['candidate']['centroid'])
+            self.assertEqual(actual['url'], expected['url'])
 
     def test_images_available_view(self):
         url = reverse('images-available')
